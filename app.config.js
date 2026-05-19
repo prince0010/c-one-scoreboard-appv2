@@ -1,0 +1,51 @@
+module.exports = {
+  expo: {
+    name: "c-one_scoreboard",
+    slug: "c-one_scoreboard",
+    version: "1.0.0",
+    orientation: "portrait",
+    icon: "./assets/images/icon.png",
+    scheme: "conescoreboard",
+    userInterfaceStyle: "automatic",
+    ios: {
+      icon: "./assets/expo.icon"
+    },
+    android: {
+      adaptiveIcon: {
+        backgroundColor: "#E6F4FE",
+        foregroundImage: "./assets/images/android-icon-foreground.png",
+        backgroundImage: "./assets/images/android-icon-background.png",
+        monochromeImage: "./assets/images/android-icon-monochrome.png"
+      },
+      predictiveBackGestureEnabled: false
+    },
+    web: {
+      output: "static",
+      favicon: "./assets/images/favicon.png"
+    },
+    plugins: [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          backgroundColor: "#208AEF",
+          android: {
+            image: "./assets/images/splash-icon.png",
+            imageWidth: 76
+          }
+        }
+      ]
+    ],
+    experiments: {
+      typedRoutes: true,
+      reactCompiler: true
+    },
+    extra: {
+      GRAPHQL_URL: process.env.NEXT_PUBLIC_GRAPHQL_URL,
+      WS_URL: process.env.NEXT_PUBLIC_WS_URL,
+      NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+      NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+    }
+  }
+};
