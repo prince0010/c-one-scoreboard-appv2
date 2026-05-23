@@ -1,4 +1,3 @@
-// import { useGame } from "@/contexts/GameContext";
 import { Orbitron_700Bold, useFonts } from "@expo-google-fonts/orbitron";
 import {
     AntDesign,
@@ -6,13 +5,15 @@ import {
     MaterialCommunityIcons,
     Octicons,
 } from "@expo/vector-icons";
-import { Link, useLocalSearchParams } from "expo-router";
+import * as NavigationBar from "expo-navigation-bar";
+import { Link, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as ScreenOrientation from "expo-screen-orientation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     Alert,
     Dimensions,
     Modal,
+    Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -20,6 +21,7 @@ import {
     ViewStyle,
 } from "react-native";
 import DropDownPicker from "react-native-dropdown-picker";
+import { useGame } from "../contexts/GameContext";
 import SettingsTab from "./settings";
 
 import { gql } from "@apollo/client";
@@ -66,31 +68,6 @@ const FETCH_GAME = gql`
   }
 `;
 
-interface FetchGameData {
-    fetchGame: {
-        _id: string;
-        max: number;
-        noOfSets: number;
-        plusTwo: boolean;
-        plusTwoMax: number;
-        plusTwoNoLimit: boolean;
-        sets: {
-            aScore: number;
-            bScore: number;
-            currentRound: number;
-            currentServer: string | null;
-            lastTeamScored: string | null;
-            switchSide: boolean;
-        }[];
-        players: {
-            A1: string;
-            A2: string;
-            B1: string;
-            B2: string;
-        };
-    };
-}
-
 type TabType = "Score" | "Scoresheet" | "Settings" | "Details";
 
 export default function ScoreboardScreen() {
@@ -110,29 +87,29 @@ export default function ScoreboardScreen() {
     >(null);
     const [updatePlayerSwitch] = useMutation(UPDATE_PLAYERS);
 
-    // const {
-    //     gamesState,
-    //     startTimer,
-    //     pauseTimer,
-    //     initializeGame,
-    //     setGameStarted,
-    //     setGamePhase,
-    //     setSelectedServer,
-    //     setSelectedReceiver,
-    //     setPlayerRoles,
-    //     swapTeamAPlayers: contextSwapTeamAPlayers,
-    //     swapTeamBPlayers: contextSwapTeamBPlayers,
-    //     updateScore,
-    //     undoAction,
-    //     canUndo,
-    //     setCurrentSet,
-    //     updateState,
-    //     setShowOnTV,
-    //     hideAllGamesFromTV,
-    //     finishGame,
-    //     updateGameSetResult,
-    //     updatePlayers,
-    // } = useGame();
+    const {
+        gamesState,
+        startTimer,
+        pauseTimer,
+        initializeGame,
+        setGameStarted,
+        setGamePhase,
+        setSelectedServer,
+        setSelectedReceiver,
+        setPlayerRoles,
+        swapTeamAPlayers: contextSwapTeamAPlayers,
+        swapTeamBPlayers: contextSwapTeamBPlayers,
+        updateScore,
+        undoAction,
+        canUndo,
+        setCurrentSet,
+        updateState,
+        setShowOnTV,
+        hideAllGamesFromTV,
+        finishGame,
+        updateGameSetResult,
+        updatePlayers,
+    } = useGame();
 
     const {
         gameId,
@@ -150,112 +127,112 @@ export default function ScoreboardScreen() {
     const [hidePlayers, setHidePlayers] = useState(false);
 
     const gameIdString = Array.isArray(gameId) ? gameId[0] : gameId;
-    // const currentGameState = gamesState[gameIdString] || {
-    //     time: 0,
-    //     isRunning: false,
-    //     teamAScore: 0,
-    //     teamBScore: 0,
-    //     teamA: "Team A",
-    //     teamB: "Team B",
-    //     teamAFinalScore: 0,
-    //     teamBFinalScore: 0,
-    //     gameStarted: false,
-    //     gamePhase: "server-selection",
-    //     selectedServer: null,
-    //     selectedReceiver: null,
-    //     playerRoles: {
-    //         a1: null,
-    //         a2: null,
-    //         b1: null,
-    //         b2: null,
-    //     },
-    //     players: {
-    //         a1: "A1",
-    //         a2: "A2",
-    //         b1: "B1",
-    //         b2: "B2",
-    //     },
-    // };
-    const { loading, error, data } = useQuery<FetchGameData>(FETCH_GAME, {
+    const currentGameState = gamesState[gameIdString] || {
+        time: 0,
+        isRunning: false,
+        teamAScore: 0,
+        teamBScore: 0,
+        teamA: "Team A",
+        teamB: "Team B",
+        teamAFinalScore: 0,
+        teamBFinalScore: 0,
+        gameStarted: false,
+        gamePhase: "server-selection",
+        selectedServer: null,
+        selectedReceiver: null,
+        playerRoles: {
+            a1: null,
+            a2: null,
+            b1: null,
+            b2: null,
+        },
+        players: {
+            a1: "A1",
+            a2: "A2",
+            b1: "B1",
+            b2: "B2",
+        },
+    };
+    const { loading, error, data } = useQuery<any>(FETCH_GAME, {
         variables: { id: gameIdString },
         skip: !gameIdString,
     });
-    // const teamAColor = currentGameState.teamAColor || "#ffc067";
-    // const teamBColor = currentGameState.teamBColor || "#a8dcab";
-    // const {
-    //     gamePhase,
-    //     selectedServer,
-    //     selectedReceiver,
-    //     playerRoles,
-    //     players,
-    //     gameStarted,
-    //     isRunning,
-    //     time,
-    //     teamAScore,
-    //     teamBScore,
-    //     teamA,
-    //     teamB,
-    //     teamAFinalScore,
-    //     teamBFinalScore,
-    //     currentSet,
-    //     sets,
-    // } = currentGameState;
+    const teamAColor = currentGameState.teamAColor || "#ffc067";
+    const teamBColor = currentGameState.teamBColor || "#a8dcab";
+    const {
+        gamePhase,
+        selectedServer,
+        selectedReceiver,
+        playerRoles,
+        players,
+        gameStarted,
+        isRunning,
+        time,
+        teamAScore,
+        teamBScore,
+        teamA,
+        teamB,
+        teamAFinalScore,
+        teamBFinalScore,
+        currentSet,
+        sets,
+    } = currentGameState;
 
-    // const displayTeamAScore = teamAScore;
-    // const displayTeamBScore = teamBScore;
-    // const displayTeamAName = teamA;
-    // const displayTeamBName = teamB;
-    // const displayTeamAColor = teamAColor;
-    // const displayTeamBColor = teamBColor;
+    const displayTeamAScore = teamAScore;
+    const displayTeamBScore = teamBScore;
+    const displayTeamAName = teamA;
+    const displayTeamBName = teamB;
+    const displayTeamAColor = teamAColor;
+    const displayTeamBColor = teamBColor;
 
-    // useEffect(() => {
-    //     if (data?.fetchGame) {
-    //         const gameData = data.fetchGame;
-    //         console.log("Syncing with database:", {
-    //             plusTwo: gameData.plusTwo,
-    //             plusTwoMax: gameData.plusTwoMax,
-    //         });
+    useEffect(() => {
+        if (data?.fetchGame) {
+            const gameData = data.fetchGame;
+            console.log("Syncing with database:", {
+                plusTwo: gameData.plusTwo,
+                plusTwoMax: gameData.plusTwoMax,
+            });
 
-    //         updateState(gameIdString, {
-    //             plusTwo: gameData.plusTwo,
-    //             plusTwoMax: gameData.plusTwoMax,
-    //             plusTwoNoLimit: gameData.plusTwoNoLimit,
-    //             max: gameData.max,
-    //         });
-    //     }
-    // }, [data, gameIdString]);
+            updateState(gameIdString, {
+                plusTwo: gameData.plusTwo,
+                plusTwoMax: gameData.plusTwoMax,
+                plusTwoNoLimit: gameData.plusTwoNoLimit,
+                max: gameData.max,
+            });
+        }
+    }, [data, gameIdString]);
 
-    // useEffect(() => {
-    //     const playerA1 = teamANameStr.includes("/")
-    //         ? teamANameStr.split("/")[0]
-    //         : teamANameStr;
-    //     const playerA2 = teamANameStr.includes("/")
-    //         ? teamANameStr.split("/")[1]
-    //         : null;
-    //     const playerB1 = teamBNameStr.includes("/")
-    //         ? teamBNameStr.split("/")[0]
-    //         : teamBNameStr;
-    //     const playerB2 = teamBNameStr.includes("/")
-    //         ? teamBNameStr.split("/")[1]
-    //         : null;
+    useEffect(() => {
+        const playerA1 = teamANameStr.includes("/")
+            ? teamANameStr.split("/")[0]
+            : teamANameStr;
+        const playerA2 = teamANameStr.includes("/")
+            ? teamANameStr.split("/")[1]
+            : null;
+        const playerB1 = teamBNameStr.includes("/")
+            ? teamBNameStr.split("/")[0]
+            : teamBNameStr;
+        const playerB2 = teamBNameStr.includes("/")
+            ? teamBNameStr.split("/")[1]
+            : null;
 
-    //     if (!gamesState[gameIdString]) {
-    //         initializeGame(
-    //             gameIdString,
-    //             {
-    //                 a1: playerA1,
-    //                 a2: playerA2 || "",
-    //                 b1: playerB1,
-    //                 b2: playerB2 || "",
-    //             },
-    //             Number(noOfSets) || 1,
-    //             Number(maxScore) || 21,
-    //             plusTwo === "true",
-    //             Number(plusTwoMax) || 30,
-    //             plusTwoNoLimit === "true"
-    //         );
-    //     }
-    // }, [gameIdString]);
+        if (!gamesState[gameIdString]) {
+            initializeGame(
+                gameIdString,
+                {
+                    a1: playerA1,
+                    a2: playerA2 || "",
+                    b1: playerB1,
+                    b2: playerB2 || "",
+                },
+                Number(noOfSets) || 1,
+                Number(maxScore) || 21,
+                plusTwo === "true",
+                Number(plusTwoMax) || 30,
+                plusTwoNoLimit === "true"
+            );
+        }
+    }, [gameIdString]);
 
     // console.log('Initializing game with params:', {
     //   gameId: gameIdString,
@@ -289,6 +266,31 @@ export default function ScoreboardScreen() {
         };
     }, []);
 
+    useFocusEffect(
+        useCallback(() => {
+            let isFocused = true;
+
+            async function hideNavBar() {
+                if (Platform.OS === 'android' && isFocused) {
+                    try {
+                        await NavigationBar.setVisibilityAsync("hidden");
+                        await NavigationBar.setBehaviorAsync("overlay-swipe");
+                    } catch (e) {
+                        console.log("Error hiding navigation bar:", e);
+                    }
+                }
+            }
+            hideNavBar();
+
+            return () => {
+                isFocused = false;
+                if (Platform.OS === 'android') {
+                    NavigationBar.setVisibilityAsync("visible").catch(err => console.log(err));
+                }
+            };
+        }, [])
+    );
+
     const swapTeamAPlayers = () => {
         console.log("Swapping Team A players");
         contextSwapTeamAPlayers(gameIdString);
@@ -305,12 +307,12 @@ export default function ScoreboardScreen() {
     };
 
     const teamATotalScore =
-        sets?.slice(0, currentSet - 1).reduce((sum, set, index) => {
+        sets?.slice(0, currentSet - 1).reduce((sum: number, set: any, index: number) => {
             return sum + ((index + 1) % 2 === 0 ? set.bScore || 0 : set.aScore || 0);
         }, currentSetData.aScore) || currentSetData.aScore;
 
     const teamBTotalScore =
-        sets?.slice(0, currentSet - 1).reduce((sum, set, index) => {
+        sets?.slice(0, currentSet - 1).reduce((sum: number, set: any, index: number) => {
             return sum + ((index + 1) % 2 === 0 ? set.aScore || 0 : set.bScore || 0);
         }, currentSetData.bScore) || currentSetData.bScore;
 
@@ -661,7 +663,7 @@ export default function ScoreboardScreen() {
                 teamBScore: currentGameState.teamBScore
             });
 
-            const updatedSets = currentGameState.sets.map((set, index) =>
+            const updatedSets = currentGameState.sets.map((set: any, index: number) =>
                 index === currentSetIndex
                     ? {
                         ...set,
@@ -1626,6 +1628,10 @@ export default function ScoreboardScreen() {
     };
 
     const renderCourtBackground = () => {
+        const scoreLabelFontSize = Math.max(12, dimensions.height * 0.05);
+        const scoreValueFontSize = Math.max(24, dimensions.height * 0.12);
+        const trophySize = Math.max(20, dimensions.height * 0.07);
+
         const currentSetData = sets?.[currentSet - 1] || { aScore: 0, bScore: 0 };
         const isSwitched = currentSetData.switchSide || false;
         const maxScore = Number(params.maxScore) || 21;
@@ -1703,16 +1709,16 @@ export default function ScoreboardScreen() {
                                 }}
                                 disabled={gamePhase !== "playing" || setOver} // Disable when not playing or game over
                             >
-                                <Text style={styles.scoreLabel}>
+                                <Text style={[styles.scoreLabel, { fontSize: scoreLabelFontSize }]}>
                                     {isSwitched ? displayTeamBName : displayTeamAName}
                                 </Text>
-                                <Text style={styles.scoreValue}>
+                                <Text style={[styles.scoreValue, { fontSize: scoreValueFontSize }]}>
                                     {isSwitched ? displayTeamBScore : displayTeamAScore}
                                 </Text>
                                 {showTrophyLeft && (
                                     <FontAwesome
                                         name="trophy"
-                                        size={40}
+                                        size={trophySize}
                                         color="gold"
                                         style={styles.trophyIcon}
                                     />
@@ -1754,16 +1760,16 @@ export default function ScoreboardScreen() {
                                 }}
                                 disabled={gamePhase !== "playing" || setOver} // Disable when not playing or game over
                             >
-                                <Text style={styles.scoreLabel}>
+                                <Text style={[styles.scoreLabel, { fontSize: scoreLabelFontSize }]}>
                                     {isSwitched ? displayTeamAName : displayTeamBName}
                                 </Text>
-                                <Text style={styles.scoreValue}>
+                                <Text style={[styles.scoreValue, { fontSize: scoreValueFontSize }]}>
                                     {isSwitched ? displayTeamAScore : displayTeamBScore}
                                 </Text>
                                 {showTrophyRight && (
                                     <FontAwesome
                                         name="trophy"
-                                        size={40}
+                                        size={trophySize}
                                         color="gold"
                                         style={styles.trophyIcon}
                                     />
@@ -1803,19 +1809,26 @@ export default function ScoreboardScreen() {
             currentGameState.teamAScore >= winningScore ||
             currentGameState.teamBScore >= winningScore;
 
+        const playerSize = Math.min(180, (dimensions.height - 120) / 2);
+        const playerFontSize = Math.max(12, Math.min(20, playerSize * 0.11));
+        const playerRoleFontSize = Math.max(10, Math.min(14, playerSize * 0.08));
+
         const basePlayerStyle: ViewStyle = {
             position: "absolute",
-            width: 180,
-            height: 180,
-            borderRadius: 20,
+            width: playerSize,
+            height: playerSize,
+            borderRadius: playerSize * 0.11,
             justifyContent: "center",
             alignItems: "center",
             borderWidth: 2,
             borderColor: "#fff",
             transform: [{ rotate: "90deg" }],
             backgroundColor: "transparent",
-
         };
+
+        const localPlayerButtonText = [styles.playerButtonText, { fontSize: playerFontSize }];
+        const localPlayerButton2Text = [styles.playerButton2Text, { fontSize: playerFontSize }];
+        const localRoleText = { fontWeight: "bold" as const, fontSize: playerRoleFontSize };
 
         if (isSingles) {
             // ==================== SINGLES RENDER LOGIC ====================
@@ -1848,9 +1861,9 @@ export default function ScoreboardScreen() {
             // Base style
             const baseStyle: ViewStyle = {
                 position: "absolute",
-                width: 180,
-                height: 180,
-                borderRadius: 20,
+                width: playerSize,
+                height: playerSize,
+                borderRadius: playerSize * 0.11,
                 justifyContent: "center",
                 alignItems: "center",
                 borderWidth: 2,
@@ -1903,18 +1916,18 @@ export default function ScoreboardScreen() {
                         }}
                         disabled={gamePhase === "playing" || gamePhase === "finished"}
                     >
-                        <Text style={styles.playerButtonText}>
+                        <Text style={localPlayerButtonText}>
                             {/* {a1Position}:  */}
                             {displayA1}
                         </Text>
                         {isServer("a1") && (
-                            <Text style={{ fontWeight: "bold" }}>
+                            <Text style={localRoleText}>
                                 {" "}
                                 {isSwitched ? "Receiver" : "Server"}{" "}
                             </Text>
                         )}
                         {isReceiver("a1") && (
-                            <Text style={{ fontWeight: "bold" }}>
+                            <Text style={localRoleText}>
                                 {" "}
                                 {isSwitched ? "Server" : "Receiver"}{" "}
                             </Text>
@@ -1934,18 +1947,18 @@ export default function ScoreboardScreen() {
                         }}
                         disabled={gamePhase === "playing" || gamePhase === "finished"}
                     >
-                        <Text style={styles.playerButton2Text}>
+                        <Text style={localPlayerButton2Text}>
                             {/* {b1Position}:  */}
                             {displayB1}
                         </Text>
                         {isServer("b1") && (
-                            <Text style={{ fontWeight: "bold" }}>
+                            <Text style={localRoleText}>
                                 {" "}
                                 {isSwitched ? "Receiver" : "Server"}{" "}
                             </Text>
                         )}
                         {isReceiver("b1") && (
-                            <Text style={{ fontWeight: "bold" }}>
+                            <Text style={localRoleText}>
                                 {" "}
                                 {isSwitched ? "Server" : "Receiver"}{" "}
                             </Text>
@@ -2187,19 +2200,19 @@ export default function ScoreboardScreen() {
                                         currentGameState.selectedServer?.startsWith("a"))))
                         }
                     >
-                        <Text style={styles.playerButtonText}>{displayA1}</Text>
-                        {(isServer("a1") ||
+                        <Text style={localPlayerButtonText}>{displayA1}</Text>
+                        {(isServer(a1ActualPos) ||
                             (gamePhase === "finished" &&
-                                currentSetData.selectedServer === "a1")) && (
-                                <Text style={{ fontWeight: "bold" }}>
+                                currentSetData.selectedServer === a1ActualPos)) && (
+                                <Text style={localRoleText}>
                                     {" "}
                                     {isSwitched ? "Receiver" : "Server"}{" "}
                                 </Text>
                             )}
-                        {(isReceiver("a1") ||
+                        {(isReceiver(a1ActualPos) ||
                             (gamePhase === "finished" &&
-                                currentSetData.selectedReceiver === "a1")) && (
-                                <Text style={{ fontWeight: "bold" }}>
+                                currentSetData.selectedReceiver === a1ActualPos)) && (
+                                <Text style={localRoleText}>
                                     {" "}
                                     {isSwitched ? "Server" : "Receiver"}{" "}
                                 </Text>
@@ -2213,9 +2226,6 @@ export default function ScoreboardScreen() {
                             {
                                 left: "9%", // Left side
                                 top: getTeamAVerticalPos(a2ActualPos),
-                                // backgroundColor: isSwitched
-                                //   ? displayTeamBColor
-                                //   : displayTeamAColor,
                                 backgroundColor: "#a6a6a6"
                             },
                             isServer(a2ActualPos) && styles.selectedTeamAPlayer,
@@ -2245,19 +2255,19 @@ export default function ScoreboardScreen() {
                                         currentGameState.selectedServer?.startsWith("a"))))
                         }
                     >
-                        <Text style={styles.playerButtonText}>{displayA2}</Text>
-                        {(isServer("a2") ||
+                        <Text style={localPlayerButtonText}>{displayA2}</Text>
+                        {(isServer(a2ActualPos) ||
                             (gamePhase === "finished" &&
-                                currentSetData.selectedServer === "a2")) && (
-                                <Text style={{ fontWeight: "bold" }}>
+                                currentSetData.selectedServer === a2ActualPos)) && (
+                                <Text style={localRoleText}>
                                     {" "}
                                     {isSwitched ? "Receiver" : "Server"}{" "}
                                 </Text>
                             )}
-                        {(isReceiver("a2") ||
+                        {(isReceiver(a2ActualPos) ||
                             (gamePhase === "finished" &&
-                                currentSetData.selectedReceiver === "a2")) && (
-                                <Text style={{ fontWeight: "bold" }}>
+                                currentSetData.selectedReceiver === a2ActualPos)) && (
+                                <Text style={localRoleText}>
                                     {" "}
                                     {isSwitched ? "Server" : "Receiver"}{" "}
                                 </Text>
@@ -2271,9 +2281,6 @@ export default function ScoreboardScreen() {
                             {
                                 right: "9%", // Right side
                                 top: getTeamBVerticalPos(b1ActualPos),
-                                // backgroundColor: isSwitched
-                                //   ? displayTeamAColor
-                                //   : displayTeamBColor,
                                 backgroundColor: "#a6a6a6"
                             },
                             isServer(b1ActualPos) && styles.selectedTeamBPlayer,
@@ -2303,19 +2310,19 @@ export default function ScoreboardScreen() {
                                         currentGameState.selectedServer?.startsWith("b"))))
                         }
                     >
-                        <Text style={styles.playerButton2Text}>{displayB1}</Text>
-                        {(isServer("b1") ||
+                        <Text style={localPlayerButton2Text}>{displayB1}</Text>
+                        {(isServer(b1ActualPos) ||
                             (gamePhase === "finished" &&
-                                currentSetData.selectedServer === "b1")) && (
-                                <Text style={{ fontWeight: "bold" }}>
+                                currentSetData.selectedServer === b1ActualPos)) && (
+                                <Text style={localRoleText}>
                                     {" "}
                                     {isSwitched ? "Receiver" : "Server"}{" "}
                                 </Text>
                             )}
-                        {(isReceiver("b1") ||
+                        {(isReceiver(b1ActualPos) ||
                             (gamePhase === "finished" &&
-                                currentSetData.selectedReceiver === "b1")) && (
-                                <Text style={{ fontWeight: "bold" }}>
+                                currentSetData.selectedReceiver === b1ActualPos)) && (
+                                <Text style={localRoleText}>
                                     {" "}
                                     {isSwitched ? "Server" : "Receiver"}{" "}
                                 </Text>
@@ -2329,9 +2336,6 @@ export default function ScoreboardScreen() {
                             {
                                 right: "9%", // Right side
                                 top: getTeamBVerticalPos(b2ActualPos),
-                                // backgroundColor: isSwitched
-                                //   ? displayTeamAColor
-                                //   : displayTeamBColor,
                                 backgroundColor: "#a6a6a6"
                             },
                             isServer(b2ActualPos) && styles.selectedTeamBPlayer,
@@ -2361,19 +2365,19 @@ export default function ScoreboardScreen() {
                                         currentGameState.selectedServer?.startsWith("b"))))
                         }
                     >
-                        <Text style={styles.playerButton2Text}>{displayB2}</Text>
-                        {(isServer("b2") ||
+                        <Text style={localPlayerButton2Text}>{displayB2}</Text>
+                        {(isServer(b2ActualPos) ||
                             (gamePhase === "finished" &&
-                                currentSetData.selectedServer === "b2")) && (
-                                <Text style={{ fontWeight: "bold" }}>
+                                currentSetData.selectedServer === b2ActualPos)) && (
+                                <Text style={localRoleText}>
                                     {" "}
                                     {isSwitched ? "Receiver" : "Server"}{" "}
                                 </Text>
                             )}
-                        {(isReceiver("b2") ||
+                        {(isReceiver(b2ActualPos) ||
                             (gamePhase === "finished" &&
-                                currentSetData.selectedReceiver === "b2")) && (
-                                <Text style={{ fontWeight: "bold" }}>
+                                currentSetData.selectedReceiver === b2ActualPos)) && (
+                                <Text style={localRoleText}>
                                     {" "}
                                     {isSwitched ? "Server" : "Receiver"}{" "}
                                 </Text>
@@ -2501,7 +2505,7 @@ export default function ScoreboardScreen() {
         let teamAScore = 0;
         let teamBScore = 0;
 
-        sets.forEach((set) => {
+        sets.forEach((set: any) => {
             teamAScore += set.aScore || 0;
             teamBScore += set.bScore || 0;
         });
@@ -2515,7 +2519,7 @@ export default function ScoreboardScreen() {
         let teamASets = 0;
         let teamBSets = 0;
 
-        sets.forEach((set) => {
+        sets.forEach((set: any) => {
             if (set.aScore > set.bScore) {
                 teamASets++;
             } else if (set.bScore > set.aScore) {
@@ -2525,6 +2529,17 @@ export default function ScoreboardScreen() {
 
         return { teamASets, teamBSets };
     };
+
+    const controlButtonPaddingHorizontal = dimensions.width < 750 ? 8 : Math.max(6, Math.min(16, dimensions.width * 0.015));
+    const controlButtonPaddingVertical = dimensions.width < 750 ? 5 : Math.max(4, Math.min(8, dimensions.height * 0.018));
+    const controlButtonFontSize = dimensions.width < 750 ? 10 : Math.max(9, Math.min(14, dimensions.height * 0.03));
+    const controlIconSize = dimensions.width < 750 ? 12 : Math.max(11, Math.min(17, dimensions.height * 0.038));
+    const headerHeight = Math.max(42, dimensions.height * 0.08);
+    const setsDropdownWidth = dimensions.width < 750 ? 95 : Math.max(120, dimensions.width * 0.16);
+    const setsDropdownHeight = Math.max(32, dimensions.height * 0.065);
+    const buttonGap = dimensions.width < 750 ? 6 : 8;
+    const scoreTextFontSize = dimensions.width < 750 ? 14 : 16;
+    const switchSidesText = dimensions.width < 750 ? "SWITCH" : "SWITCH SIDES";
 
     return (
         <View
@@ -2536,7 +2551,7 @@ export default function ScoreboardScreen() {
             {/* Header with Back button and Tabs */}
             <View style={styles.header}>
                 {/* Back button */}
-                <Link href="/(tabs)/(games)/" asChild>
+                <Link href="/(tabs)/(games)" asChild>
                     <TouchableOpacity style={styles.backButton}>
                         <AntDesign name={"arrowleft" as any} size={24} color="white" />
                     </TouchableOpacity>
@@ -2552,11 +2567,11 @@ export default function ScoreboardScreen() {
                     </TouchableOpacity>
 
                     {/* <TouchableOpacity
-            style={[styles.tab, activeTab === "Scoresheet" && styles.activeTab]}
-            onPress={() => setActiveTab("Scoresheet")}
-          >
-            <Text style={styles.tabText}>Scoresheet</Text>
-          </TouchableOpacity> */}
+        style={[styles.tab, activeTab === "Scoresheet" && styles.activeTab]}
+        onPress={() => setActiveTab("Scoresheet")}
+      >
+        <Text style={styles.tabText}>Scoresheet</Text>
+      </TouchableOpacity> */}
 
                     <TouchableOpacity
                         style={[styles.tab, activeTab === "Settings" && styles.activeTab]}
@@ -2566,15 +2581,15 @@ export default function ScoreboardScreen() {
                     </TouchableOpacity>
 
                     {/* <TouchableOpacity
-            style={[styles.tab, activeTab === "Details" && styles.activeTab]}
-            onPress={() => setActiveTab("Details")}
-          >
-            <Text style={styles.tabText}>Details</Text>
-          </TouchableOpacity> */}
+        style={[styles.tab, activeTab === "Details" && styles.activeTab]}
+        onPress={() => setActiveTab("Details")}
+      >
+        <Text style={styles.tabText}>Details</Text>
+      </TouchableOpacity> */}
                 </View>
             </View>
 
-            <View style={styles.headerContainer}>
+            <View style={[styles.headerContainer, { height: headerHeight }]}>
                 {/* Left section - Dropdown and score */}
                 <View style={styles.headerLeftSection}>
                     <DropDownPicker
@@ -2584,9 +2599,10 @@ export default function ScoreboardScreen() {
                         setValue={handleSetChange}
                         items={generateSetItems()}
                         placeholder="Select Set"
-                        style={[styles.setsDropdown, { width: 150 }]}
-                        dropDownContainerStyle={[styles.setsDropdownList, { width: 150 }]}
-                        textStyle={styles.setsDropdownText}
+                        containerStyle={{ width: setsDropdownWidth, height: setsDropdownHeight }}
+                        style={[styles.setsDropdown, { width: setsDropdownWidth, height: setsDropdownHeight, minHeight: setsDropdownHeight, paddingVertical: 0, paddingHorizontal: 6 }]}
+                        dropDownContainerStyle={[styles.setsDropdownList, { width: setsDropdownWidth }]}
+                        textStyle={[styles.setsDropdownText, { fontSize: Math.max(10, controlButtonFontSize + 1) }]}
                         listMode="SCROLLVIEW"
                         onChangeValue={(value) => {
                             if (value) {
@@ -2595,7 +2611,7 @@ export default function ScoreboardScreen() {
                         }}
                     />
 
-                    <Text style={styles.scoreText}>
+                    <Text style={[styles.scoreText, { fontSize: scoreTextFontSize }]}>
                         {(() => {
                             const { teamASets, teamBSets } = calculateSetsWon();
                             const currentSetData = sets?.[currentSet - 1] || {
@@ -2612,10 +2628,6 @@ export default function ScoreboardScreen() {
                                     {isSwitched
                                         ? `${teamBSets} - ${teamASets} `
                                         : `${teamASets} - ${teamBSets} `}
-                                    {/* 
-                  <Text style={{ color: "green" }}>
-                    (Set {currentSet}: {displaySetA}-{displaySetB})
-                  </Text> */}
                                 </>
                             );
                         })()}
@@ -2623,13 +2635,13 @@ export default function ScoreboardScreen() {
                 </View>
 
                 {/* Show and Hide */}
-                <View style={styles.headerRightSection}>
+                <View style={[styles.headerRightSection, { gap: buttonGap }]}>
                     <TouchableOpacity
                         style={[
                             currentGameState.showOnTV
                                 ? styles.controlButtonHide
                                 : styles.controlButtonShow,
-                            { paddingHorizontal: 20, width: 90 },
+                            { paddingHorizontal: controlButtonPaddingHorizontal, paddingVertical: controlButtonPaddingVertical },
                         ]}
                         onPress={() => {
                             setShowOnTV(gameIdString, !currentGameState.showOnTV);
@@ -2637,13 +2649,13 @@ export default function ScoreboardScreen() {
                     >
                         {currentGameState.showOnTV ? (
                             <View style={{ flexDirection: "row", alignItems: "center" }}>
-                                <MaterialCommunityIcons name="eye-off" size={17} color="white" style={{ marginRight: 6 }} />
-                                <Text style={styles.controlButtonText}>HIDE</Text>
+                                <MaterialCommunityIcons name="eye-off" size={controlIconSize} color="white" style={{ marginRight: 6 }} />
+                                <Text style={[styles.controlButtonText, { fontSize: controlButtonFontSize }]}>HIDE</Text>
                             </View>
                         ) : (
                             <View style={{ flexDirection: "row", alignItems: "center" }}>
-                                <MaterialCommunityIcons name="eye" size={17} color="white" style={{ marginRight: 6 }} />
-                                <Text style={styles.controlButtonText}>SHOW</Text>
+                                <MaterialCommunityIcons name="eye" size={controlIconSize} color="white" style={{ marginRight: 6 }} />
+                                <Text style={[styles.controlButtonText, { fontSize: controlButtonFontSize }]}>SHOW</Text>
                             </View>
                         )}
                     </TouchableOpacity>
@@ -2652,6 +2664,8 @@ export default function ScoreboardScreen() {
                         style={[
                             styles.controlButton,
                             {
+                                paddingHorizontal: controlButtonPaddingHorizontal,
+                                paddingVertical: controlButtonPaddingVertical,
                                 opacity:
                                     currentSetData.aScore > 0 || currentSetData.bScore > 0
                                         ? 0.5
@@ -2664,8 +2678,8 @@ export default function ScoreboardScreen() {
                         disabled={currentSetData.aScore > 0 || currentSetData.bScore > 0}
                     >
                         <View style={{ flexDirection: "row", alignItems: "center" }}>
-                            <Octicons name="arrow-switch" size={17} style={{ marginRight: 8 }} color="white" />
-                            <Text style={styles.controlButtonText}>SWITCH SIDES</Text>
+                            <Octicons name="arrow-switch" size={controlIconSize} style={{ marginRight: dimensions.width < 750 ? 4 : 8 }} color="white" />
+                            <Text style={[styles.controlButtonText, { fontSize: controlButtonFontSize }]}>{switchSidesText}</Text>
                         </View>
                     </TouchableOpacity>
 
@@ -2673,6 +2687,8 @@ export default function ScoreboardScreen() {
                         style={[
                             styles.controlButton,
                             {
+                                paddingHorizontal: controlButtonPaddingHorizontal,
+                                paddingVertical: controlButtonPaddingVertical,
                                 backgroundColor: "#2196F3",
                                 opacity: canUndo(gameIdString) ? 1 : 0.5,
                             },
@@ -2698,8 +2714,8 @@ export default function ScoreboardScreen() {
                         disabled={!canUndo(gameIdString)}
                     >
                         <View style={{ flexDirection: "row", alignItems: "center" }}>
-                            <MaterialCommunityIcons name="undo" size={17} style={{ marginRight: 6 }} color="white" />
-                            <Text style={styles.controlButtonText}>UNDO</Text>
+                            <MaterialCommunityIcons name="undo" size={controlIconSize} style={{ marginRight: 6 }} color="white" />
+                            <Text style={[styles.controlButtonText, { fontSize: controlButtonFontSize }]}>UNDO</Text>
                         </View>
                     </TouchableOpacity>
 
@@ -2744,10 +2760,6 @@ export default function ScoreboardScreen() {
                                                 await finishGame(gameIdString, false);
                                                 setGamePhase(gameIdString, "finished");
                                                 setShowFinishModal(false);
-                                                // Alert.alert(
-                                                //   "Success",
-                                                //   "Game has been properly finished"
-                                                // );
                                             } catch (error) {
                                                 Alert.alert("Error", "Failed to finish game");
                                                 setShowFinishModal(false);
@@ -2765,11 +2777,15 @@ export default function ScoreboardScreen() {
                     <TouchableOpacity
                         style={[
                             styles.controlButton,
-                            { backgroundColor: "#f44336", marginLeft: 30 },
+                            {
+                                paddingHorizontal: controlButtonPaddingHorizontal,
+                                paddingVertical: controlButtonPaddingVertical,
+                                backgroundColor: "#f44336",
+                            },
                         ]}
                         onPress={() => setShowFinishModal(true)}
                     >
-                        <Text style={styles.controlButtonText}>FINISH</Text>
+                        <Text style={[styles.controlButtonText, { fontSize: controlButtonFontSize }]}>FINISH</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -2964,7 +2980,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         width: 2,
         right: 52,
-        height: 470,
+        height: "97%",
         backgroundColor: "#fff",
         marginTop: 7,
     },
@@ -2979,7 +2995,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         width: 2,
         left: 52,
-        height: 470,
+        height: "97%",
         backgroundColor: "#fff",
         marginTop: 7,
     },
@@ -2992,8 +3008,9 @@ const styles = StyleSheet.create({
     },
     centerCircle: {
         //Center sa court
-        width: 380,
-        height: 470,
+        position: "absolute",
+        width: "38%",
+        height: "97%",
         borderWidth: 2,
         borderColor: "#fff",
         justifyContent: "center",
@@ -3001,16 +3018,15 @@ const styles = StyleSheet.create({
         marginTop: 5,
     },
     scoreContainer: {
-        flex: 1,
         flexDirection: "row",
         alignItems: "center",
-        gap: "2%",
-        width: "80%",
-        right: "9%",
+        justifyContent: "space-between",
+        width: "90%",
+        height: "80%",
     },
     scoreBoxA: {
-        width: 180,
-        height: 200,
+        width: "47%",
+        height: "75%",
         borderRadius: 10,
         justifyContent: "center",
         alignItems: "center",
@@ -3018,8 +3034,8 @@ const styles = StyleSheet.create({
         borderColor: "#fff",
     },
     scoreBoxB: {
-        width: 180,
-        height: 200,
+        width: "47%",
+        height: "75%",
         borderRadius: 10,
         justifyContent: "center",
         alignItems: "center",
@@ -3270,18 +3286,16 @@ const styles = StyleSheet.create({
     headerLeftSection: {
         flexDirection: "row",
         alignItems: "center",
-        flex: 1,
-        minWidth: "50%",
+        gap: 15,
     },
     headerRightSection: {
         flexDirection: "row",
-        gap: 10,
+        gap: 8,
     },
     scoreText: {
-        fontSize: 20,
+        fontSize: 16,
         fontWeight: "bold",
         color: "#333",
-        marginLeft: -340,
     },
     // Lines
     courtLabel: {

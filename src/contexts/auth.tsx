@@ -1,6 +1,6 @@
+import React, { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useRouter } from 'expo-router'
-import React, { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react'
 
 type AuthContextType = {
   signIn: (court: string) => Promise<void>
@@ -42,7 +42,7 @@ function AuthProvider({ children }: PropsWithChildren) {
       await AsyncStorage.setItem('isAuthenticated', 'true')
       await AsyncStorage.setItem('selectedCourt', court)
       setSession('true')
-      router.navigate('/(tabs)/(games)/')
+      router.navigate('/(tabs)/(games)')
     } finally {
       setIsLoading(false)
       isNavigating.current = false
@@ -55,6 +55,7 @@ function AuthProvider({ children }: PropsWithChildren) {
       await AsyncStorage.removeItem('selectedCourt');
       // Clear the session/user token
       setSession(null);
+      // You might have other cleanup here
     } catch (error) {
       console.error('Error during sign out:', error);
     }

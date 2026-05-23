@@ -3,11 +3,13 @@ import { gql } from "@apollo/client";
 import { useMutation, useQuery } from "@apollo/client/react";
 import { AntDesign } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Link, usePathname, useRouter } from "expo-router";
+import * as NavigationBar from "expo-navigation-bar";
+import { Link, useFocusEffect, usePathname, useRouter } from "expo-router";
 import * as ScreenOrientation from "expo-screen-orientation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -106,12 +108,12 @@ interface Game {
         B1: string | null;
         B2: string | null;
     };
-    sets: {
+    sets?: {
         aScore: number;
         bScore: number;
         currentRound: number;
         lastTeamScored: string | null;
-    }[];
+    }[] | null;
 }
 
 interface FetchGamesData {
@@ -132,7 +134,7 @@ export default function GamesScreen() {
     } = useQuery<FetchGamesData>(FETCH_GAMES, {
         variables: { courtId: selectedCourtId },
         skip: !selectedCourtId,
-        pollInterval: 1000,
+        // pollInterval: 1000,
         fetchPolicy: "cache-and-network",
     });
     const [hideGamesFromTV] = useMutation(HIDE_GAMES_FROM_TV, {
@@ -159,22 +161,51 @@ export default function GamesScreen() {
         };
     }, []);
 
+    useFocusEffect(
+        useCallback(() => {
+            let isFocused = true;
+
+            async function hideNavBar() {
+                if (Platform.OS === 'android' && isFocused) {
+                    try {
+                        await NavigationBar.setVisibilityAsync("hidden");
+                        await NavigationBar.setBehaviorAsync("overlay-swipe");
+                    } catch (e) {
+                        console.log("Error hiding navigation bar:", e);
+                    }
+                }
+            }
+            hideNavBar();
+
+            return () => {
+                isFocused = false;
+                if (Platform.OS === 'android') {
+                    NavigationBar.setVisibilityAsync("visible").catch(err => console.log(err));
+                }
+            };
+        }, [])
+    );
+
     const renderTeamScores = (
         team: string,
         player1: string | null,
         player2: string | null,
-        sets: any[],
+        sets: any[] | null | undefined,
         noOfSets: number
     ) => {
         if (!player1 && !player2) return null;
 
+        const safeSets = sets || [];
+
         // Calculate set wins for this team
         let teamSetWins = 0;
-        for (let i = 0; i < Math.min(sets.length, noOfSets); i++) {
-            const set = sets[i];
+        for (let i = 0; i < Math.min(safeSets.length, noOfSets); i++) {
+            const set = safeSets[i];
             if (
-                (team === "A" && set.aScore > set.bScore) ||
-                (team === "B" && set.bScore > set.aScore)
+                set && (
+                    (team === "A" && set.aScore > set.bScore) ||
+                    (team === "B" && set.bScore > set.aScore)
+                )
             ) {
                 teamSetWins++;
             }
@@ -221,7 +252,7 @@ export default function GamesScreen() {
                     </View>
 
                     <View style={styles.setsContainer}>
-                        {sets.slice(0, noOfSets).map((set, index) => (
+                        {safeSets.slice(0, noOfSets).map((set, index) => (
                             <View
                                 key={`${team}-set-${index}`}
                                 style={[
@@ -231,7 +262,7 @@ export default function GamesScreen() {
                             >
                                 <Text style={styles.setNumber}>Set {index + 1}</Text>
                                 <Text style={styles.setScore}>
-                                    {team === "A" ? set.aScore : set.bScore}
+                                    {set ? (team === "A" ? set.aScore : set.bScore) : 0}
                                 </Text>
                             </View>
                         ))}
@@ -259,7 +290,7 @@ export default function GamesScreen() {
     }, []);
 
     const handleNewGame = () => {
-        console.log("New Game Button Pressed");
+        router.push("/(tabs)/(games)/modal");
     };
 
     if (isLoading || gamesLoading) {
@@ -283,13 +314,13 @@ export default function GamesScreen() {
         <View style={styles.container}>
             <View style={styles.topSection}>
                 <View style={styles.buttonsRow}>
-                    <Link href="/(tabs)/(games)/modal/index" asChild>
+                    <Link href="/(tabs)/(games)/modal" asChild>
                         <TouchableOpacity
                             onPress={handleNewGame}
                             style={styles.newGameButton}
                         >
                             <AntDesign
-                                name={"pluscircle" as any}
+                                name="plus"
                                 size={24}
                                 color="black"
                                 style={styles.icon}

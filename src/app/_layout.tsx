@@ -1,43 +1,44 @@
-import { ApolloProvider } from '@apollo/client/react';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import * as NavigationBar from 'expo-navigation-bar';
-import { Slot } from 'expo-router';
-import React, { useEffect } from 'react';
-import { Platform, useColorScheme } from 'react-native';
-
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
-import AuthContextProvider, { useAuth } from '@/contexts/auth';
-import { createApolloClient } from '@/lib/apollo';
+import AuthContextProvider, { useAuth } from "@/contexts/auth";
+import { GameProvider } from "@/contexts/GameContext";
+import { createApolloClient } from "@/lib/apollo";
+import { ApolloProvider } from "@apollo/client/react";
+import { Slot } from "expo-router";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, View } from "react-native";
 
 const client = createApolloClient();
 
-function MainLayoutContent() {
-  const colorScheme = useColorScheme();
+function AuthGate() {
   const { session, isLoading } = useAuth();
 
-  useEffect(() => {
-    if (Platform.OS === 'android') {
-      NavigationBar.setVisibilityAsync("hidden");
-      NavigationBar.setBehaviorAsync("overlay-swipe");
-    }
-  }, []);
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      {!isLoading && (
-        session ? <AppTabs /> : <Slot />
-      )}
-    </ThemeProvider>
-  );
+  return <Slot />;
 }
 
-export default function TabLayout() {
+export default function RootLayout() {
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    setIsReady(true);
+  }, []);
+
+  if (!isReady) {
+    return null;
+  }
+
   return (
     <ApolloProvider client={client}>
       <AuthContextProvider>
-        <MainLayoutContent />
+        <GameProvider>
+          <AuthGate />
+        </GameProvider>
       </AuthContextProvider>
     </ApolloProvider>
   );

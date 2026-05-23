@@ -10,13 +10,13 @@ import {
     KeyboardAvoidingView,
     Platform,
     Pressable,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
     View,
     useWindowDimensions,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Dropdown } from "react-native-element-dropdown";
 
 const COURTS_OPTION = gql`
@@ -65,7 +65,7 @@ export default function LoginScreen() {
 
     useEffect(() => {
         if (session) {
-            router.replace("/(tabs)/(games)/index")
+            router.replace("/(tabs)/(games)")
         }
     }, [session])
 
@@ -119,7 +119,7 @@ export default function LoginScreen() {
                                     styles.logo,
                                     {
                                         width: isTablet ? 320 : "100%",
-                                        height: isLandscape ? 110 : 160
+                                        height: isLandscape ? 130 : 190
                                     }
                                 ]}
                                 transition={500}
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     },
     logo: {
         aspectRatio: 3,
-        marginBottom: 10,
+        marginBottom: 15,
     },
     footer: {
         color: "gray",
