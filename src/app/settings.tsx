@@ -1,5 +1,6 @@
 import { gql } from "@apollo/client";
 import { useQuery } from "@apollo/client/react";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
     ActivityIndicator,
@@ -50,7 +51,20 @@ interface SettingsTabProps {
         newScore: number
     ) => void;
     currentSet: number;
-    sets: Array<{ aScore: number; bScore: number }>;
+    sets: Array<{
+        aScore: number;
+        bScore: number;
+        scoresheet?: Array<{
+            aSwitch?: boolean;
+            bSwitch?: boolean;
+            currentAScore?: number;
+            currentBScore?: number;
+            scoredAt?: Date;
+            scorer?: string | null;
+            nextServe?: string | null;
+            toServe?: string | null;
+        }>;
+    }>;
 }
 const screenHeight = Dimensions.get("screen").height;
 interface FetchGameData {
@@ -93,6 +107,7 @@ export default function SettingsTab({
     const [showEditModal, setShowEditModal] = useState(false);
     const [showForceWinModal, setShowForceWinModal] = useState(false);
     const [showResetModal, setShowResetModal] = useState(false);
+    const router = useRouter();
 
     const handleResetGame = () => {
         setShowResetModal(true);
@@ -150,6 +165,12 @@ export default function SettingsTab({
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>GAME ACTIONS</Text>
                 <View style={styles.buttonRow}>
+                    <TouchableOpacity
+                        style={[styles.actionButton, styles.scoresheetButton]}
+                        onPress={() => router.push({ pathname: '/scoresheet-view', params: { gameId } })}
+                    >
+                        <Text style={styles.buttonText}>SCORESHEET</Text>
+                    </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.actionButton, styles.editButton]}
                         onPress={() => setShowEditModal(true)}
@@ -275,27 +296,34 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         padding: 16,
         marginBottom: 16,
-        height: 455,
         alignItems: "center",
+        flex: 1,
     },
     sectionTitle: {
         color: "#4CAF50",
         fontSize: 18,
         fontWeight: "bold",
-        marginBottom: 56,
+        marginBottom: 16,
     },
     buttonRow: {
         flexDirection: "row",
-        justifyContent: "space-between",
-        marginTop: 70,
+        justifyContent: "center",
+        flexWrap: "wrap",
+        gap: 16,
+        marginTop: 10,
+        width: "100%",
     },
     actionButton: {
-        flex: 1,
+        minWidth: "45%",
         borderRadius: 6,
-        padding: 40,
+        paddingVertical: 24,
+        paddingHorizontal: 12,
         alignItems: "center",
         justifyContent: "center",
-        marginHorizontal: 4,
+        marginBottom: 16,
+    },
+    scoresheetButton: {
+        backgroundColor: "#9C27B0",
     },
     editButton: {
         backgroundColor: "#4CAF50",
@@ -309,7 +337,7 @@ const styles = StyleSheet.create({
     buttonText: {
         color: "#fff",
         fontWeight: "bold",
-        fontSize: 20,
+        fontSize: 16,
         textAlign: "center",
     },
     loadingContainer: {

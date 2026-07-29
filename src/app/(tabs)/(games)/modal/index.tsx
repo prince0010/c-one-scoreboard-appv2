@@ -104,6 +104,9 @@ const CREATE_GAME = gql`
         bScore
         currentRound
         currentServer
+        currentReceiver
+        firstServer
+        firstReceiver
         lastTeamScored
         switchSide
         scoresheet {
@@ -199,6 +202,9 @@ interface CreateGameData {
             bScore: number;
             currentRound: number;
             currentServer?: string | null;
+            currentReceiver?: string | null;
+            firstServer?: string | null;
+            firstReceiver?: string | null;
             lastTeamScored?: string | null;
             switchSide?: boolean | null;
             scoresheet?: {

@@ -4,6 +4,9 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 
 type SetResultInput = {
     currentServer: "A1" | "A2" | "B1" | "B2" | null;
+    currentReceiver?: "A1" | "A2" | "B1" | "B2" | null;
+    firstServer?: "A1" | "A2" | "B1" | "B2" | null;
+    firstReceiver?: "A1" | "A2" | "B1" | "B2" | null;
     aScore: number;
     bScore: number;
     lastTeamScored: string | null;
@@ -17,6 +20,7 @@ type SetResultInput = {
         scorer: string | null;
         nextServe: string | null;
         toServe: string | null;
+        receiver?: string | null;
     }>;
     switchSide?: boolean;
 };
@@ -41,6 +45,9 @@ const UPDATE_SET_RESULT = gql`
         lastTeamScored
         currentRound
         currentServer
+        currentReceiver
+        firstServer
+        firstReceiver
         scoresheet {
           aSwitch
           bSwitch
@@ -50,6 +57,7 @@ const UPDATE_SET_RESULT = gql`
           scorer
           nextServe
           toServe
+          receiver
         }
       }
       currentPlayingSet
@@ -143,6 +151,7 @@ interface GameState {
         switchSide?: boolean;
         lastTeamScored?: string | null;
         currentServer: "A1" | "A2" | "B1" | "B2" | null;
+        currentReceiver: "A1" | "A2" | "B1" | "B2" | null;
         gamePhase:
         | "server-selection"
         | "receiver-selection"
@@ -323,6 +332,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                         currentAScore: 0,
                         currentBScore: 0,
                         currentServer: null,
+                        currentReceiver: null,
                         scoresheet: [],
                         gamePhase: "server-selection",
                         selectedServer: null,
@@ -560,6 +570,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                             currentRound: 0,
                             lastTeamScored: null,
                             currentServer: null,
+                            currentReceiver: null,
                             scoresheet: [
                                 {
                                     aSwitch: false,
@@ -605,7 +616,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                         lastTeamScored: setResult.lastTeamScored,
                         currentRound: setResult.currentRound,
                         currentServer: setResult.currentServer,
-                        scoresheet: setResult.scoresheet || [],
+                        currentReceiver: setResult.currentReceiver,
+                        firstServer: setResult.firstServer,
+                        firstReceiver: setResult.firstReceiver,
+                        scoresheet: setResult.scoresheet?.map(({ __typename, ...rest }: any) => rest),
                         switchSide: setResult.switchSide,
                     },
                     // currentPlayingSet: gamesState[gameId]?.currentPlayingSet || setNumber,
@@ -615,6 +629,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
             console.log('Updating set result with lastTeamScored:', setResult.lastTeamScored);
             if ((result as any).errors) {
                 console.error("Failed to update set result:", (result as any).errors);
+            } else if ((result.data as any)?.updateSetResult?.sets) {
+                setGamesState((prev) => {
+                    const currentState = prev[gameId];
+                    if (!currentState) return prev;
+                    return {
+                        ...prev,
+                        [gameId]: {
+                            ...currentState,
+                            sets: (result.data as any).updateSetResult.sets
+                        }
+                    };
+                });
             }
 
         } catch (error) {
@@ -657,6 +683,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                             currentRound: 0,
                             lastTeamScored: null,
                             currentServer: null,
+                            currentReceiver: null,
                             switchSide: false,
                             scoresheet: [],
                             gamePhase: "server-selection",
@@ -684,11 +711,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                 currentAScore:
                     newState.teamAScore !== undefined
                         ? newState.teamAScore
-                        : currentSetData.currentAScore,
+                        : (currentSetData.aScore ?? currentSetData.currentAScore ?? 0),
                 currentBScore:
                     newState.teamBScore !== undefined
                         ? newState.teamBScore
-                        : currentSetData.currentBScore,
+                        : (currentSetData.bScore ?? currentSetData.currentBScore ?? 0),
                 gamePhase:
                     newState.gamePhase !== undefined
                         ? newState.gamePhase
@@ -780,10 +807,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                 },
             });
 
-            // Update set result
-            updateGameSetResult(gameId, gamesState[gameId]?.currentSet || 1, {
-                currentPlayingSet: gamesState[gameId]?.currentSet || 1,
-            });
+            // Update set result is not needed here as it only modifies Game status
         } catch (error) {
             console.error("Error starting game:", error);
         }
@@ -842,9 +866,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
             });
 
             const maxScore = currentState.max || 21;
-            const plusTwoEnabled = currentState.plusTwo || false;
-            const plusTwoMax = currentState.plusTwoMax || 30;
-            const plusTwoNoLimit = currentState.plusTwoNoLimit || false;
+            const isOneSet = Number(currentState.noOfSets) === 1;
+            const plusTwoEnabled = isOneSet ? true : (currentState.plusTwo || false);
+            const plusTwoMax = isOneSet ? 9999 : (currentState.plusTwoMax || 30);
+            const plusTwoNoLimit = isOneSet ? true : (currentState.plusTwoNoLimit || false);
 
             const currentSetIndex = currentState.currentSet - 1;
             const currentSetData = currentState.sets[currentSetIndex];
@@ -853,8 +878,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                 // ================ SINGLES LOGIC ================
                 const currentSetIndex = currentState.currentSet - 1;
                 const currentSetData = currentState.sets[currentSetIndex];
-                const currentAScore = currentSetData.currentAScore;
-                const currentBScore = currentSetData.currentBScore;
+                const currentAScore = currentSetData.aScore ?? currentSetData.currentAScore ?? 0;
+                const currentBScore = currentSetData.bScore ?? currentSetData.currentBScore ?? 0;
 
                 const isPlusTwoSituation =
                     plusTwoEnabled &&
@@ -892,25 +917,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                 if (plusTwoEnabled) {
                     const leadingScore = Math.max(newAScore, newBScore);
                     const trailingScore = Math.min(newAScore, newBScore);
-                    if (plusTwoNoLimit) {
-                        if (
-                            leadingScore >= plusTwoMax &&
-                            leadingScore >= trailingScore + 2
-                        ) {
-                            setShouldEnd = true;
-                        }
-                        console.log(
-                            `plusTwoNoLimit: ${plusTwoNoLimit}, leading: ${leadingScore}, trailing: ${trailingScore}, plusTwoMax: ${plusTwoMax}`
-                        );
-                    } else {
-                        if (leadingScore >= plusTwoMax) {
-                            setShouldEnd = true;
-                        } else if (
-                            leadingScore >= maxScore &&
-                            leadingScore >= trailingScore + 2
-                        ) {
-                            setShouldEnd = true;
-                        }
+
+                    if (leadingScore >= plusTwoMax) {
+                        setShouldEnd = true;
+                    } else if (
+                        leadingScore >= maxScore &&
+                        leadingScore >= trailingScore + 2
+                    ) {
+                        setShouldEnd = true;
                     }
                 } else {
                     if (newAScore >= maxScore || newBScore >= maxScore) {
@@ -959,13 +973,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                     bScore: newBScore,
                     lastTeamScored: team === "teamA" ? "A" : "B",
                     currentRound: newCurrentRound,
-                    scoresheet: updatedSets[currentSetIndex].scoresheet,
+                    // Omit scoresheet to allow the backend to calculate the receiver and server
                 };
 
-                updateGameSetResult(gameId, currentSetIndex + 1, {
-                    ...setResult,
-                    currentPlayingSet: currentState.currentSet,
-                });
+                if (!setShouldEnd) {
+                    updateGameSetResult(gameId, currentSetIndex + 1, {
+                        ...setResult,
+                        currentPlayingSet: currentState.currentSet,
+                    });
+                }
 
                 if (setShouldEnd) {
                     const actualWinningTeam = team === "teamA" ? "A" : "B";
@@ -976,7 +992,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                         aScore: displayAScore,
                         bScore: displayBScore,
                         lastTeamScored: actualWinningTeam,
-                        scoresheet: updatedSets[currentSetIndex].scoresheet || [],
+                        // Omit scoresheet to allow the backend to calculate the receiver and server
                         currentRound: newCurrentRound,
                         currentServer: currentState.selectedServer?.toUpperCase() as
                             | "A1"
@@ -1028,6 +1044,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                             currentRound: 0,
                             lastTeamScored: null,
                             currentServer: null,
+                            currentReceiver: null,
                             scoresheet: [
                                 {
                                     aSwitch: false,
@@ -1106,8 +1123,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                 // ================ DOUBLES LOGIC ================
                 const currentSetIndex = currentState.currentSet - 1;
                 const currentSetData = currentState.sets[currentSetIndex];
-                const currentAScore = currentSetData.currentAScore;
-                const currentBScore = currentSetData.currentBScore;
+                const currentAScore = currentSetData.aScore ?? currentSetData.currentAScore ?? 0;
+                const currentBScore = currentSetData.bScore ?? currentSetData.currentBScore ?? 0;
 
                 const isPlusTwoSituation =
                     plusTwoEnabled &&
@@ -1169,7 +1186,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
 
                 const newServerPosition = totalScore % 2 === 0 ? "right" : "left";
 
-                let newPlayers = { ...currentState.players };
                 let newSelectedServer = currentState.selectedServer;
                 let newSelectedReceiver = currentState.selectedReceiver;
                 let newPlayerRoles = { ...currentState.playerRoles };
@@ -1185,95 +1201,78 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
 
                 if (isServingTeam) {
                     if (actualScoringTeam === "teamA") {
-                        newPlayers = {
-                            ...newPlayers,
-                            a1: currentState.players.a2,
-                            a2: currentState.players.a1,
-                        };
                         aSwitch = true;
                     } else if (actualScoringTeam === "teamB") {
-                        newPlayers = {
-                            ...newPlayers,
-                            b1: currentState.players.b2,
-                            b2: currentState.players.b1,
-                        };
                         bSwitch = true;
                     }
                 } else {
-                    if (currentState.selectedServer?.startsWith("a")) {
-                        const hello = currentState.teamBScore + 1;
-                        if (hello % 2 === 0) {
-                            newSelectedServer = "b2";
-                            newPlayers = {
-                                ...newPlayers,
-                                b1: currentState.players.b1,
-                                b2: currentState.players.b2,
-                            };
-                            updatePlayers({
-                                variables: {
-                                    gameId,
-                                    players: {
-                                        B1: newPlayers.b1,
-                                        B2: newPlayers.b2,
-                                    },
-                                },
-                            });
+                    // Determine new server based on scoresheet history and BWF rules
+                    let teamAPos = { right: "a1", left: "a2" };
+                    let teamBPos = { right: "b1", left: "b2" };
+
+                    const firstServe = currentSetData.scoresheet.length > 0
+                        ? currentSetData.scoresheet[0].scorer?.toLowerCase()
+                        : currentState.selectedServer;
+
+                    if (firstServe === "a2") teamAPos = { right: "a2", left: "a1" };
+                    if (firstServe === "b2") teamBPos = { right: "b2", left: "b1" };
+
+                    if (currentSetData.scoresheet) {
+                        for (const round of currentSetData.scoresheet) {
+                            if (round.aSwitch) {
+                                const temp = teamAPos.right;
+                                teamAPos.right = teamAPos.left;
+                                teamAPos.left = temp;
+                            }
+                            if (round.bSwitch) {
+                                const temp = teamBPos.right;
+                                teamBPos.right = teamBPos.left;
+                                teamBPos.left = temp;
+                            }
                         }
-                        if (hello % 2 === 1) {
-                            newSelectedServer = "b1";
-                            newPlayers = {
-                                ...newPlayers,
-                                b1: currentState.players.b1,
-                                b2: currentState.players.b2,
-                            };
-                            updatePlayers({
-                                variables: {
-                                    gameId,
-                                    players: {
-                                        B1: newPlayers.b1,
-                                        B2: newPlayers.b2,
-                                    },
-                                },
-                            });
+                    }
+
+                    if (actualScoringTeam === "teamA") {
+                        const isEven = newAScore % 2 === 0;
+                        newSelectedServer = isEven ? teamAPos.right : teamAPos.left;
+                    } else {
+                        const isEven = newBScore % 2 === 0;
+                        newSelectedServer = isEven ? teamBPos.right : teamBPos.left;
+                    }
+                }
+
+                // Determine new receiver
+                if (newSelectedServer) {
+                    let teamAPosFinal = { right: "a1", left: "a2" };
+                    let teamBPosFinal = { right: "b1", left: "b2" };
+
+                    const firstServeFinal = currentSetData.scoresheet.length > 0
+                        ? currentSetData.scoresheet[0].scorer?.toLowerCase()
+                        : currentState.selectedServer;
+
+                    if (firstServeFinal === "a2") teamAPosFinal = { right: "a2", left: "a1" };
+                    if (firstServeFinal === "b2") teamBPosFinal = { right: "b2", left: "b1" };
+
+                    const allRounds = [...(currentSetData.scoresheet || []), { aSwitch, bSwitch }];
+                    for (const round of allRounds) {
+                        if (round.aSwitch) {
+                            const temp = teamAPosFinal.right;
+                            teamAPosFinal.right = teamAPosFinal.left;
+                            teamAPosFinal.left = temp;
                         }
-                        newSelectedReceiver = newSelectedServer === "b1" ? "a1" : "a2";
-                    } else if (currentState.selectedServer?.startsWith("b")) {
-                        const hello = currentState.teamAScore + 1;
-                        if (hello % 2 === 0) {
-                            newSelectedServer = "a2";
-                            newPlayers = {
-                                ...newPlayers,
-                                a1: currentState.players.a1,
-                                a2: currentState.players.a2,
-                            };
-                            updatePlayers({
-                                variables: {
-                                    gameId,
-                                    players: {
-                                        A1: newPlayers.a1,
-                                        A2: newPlayers.a2,
-                                    },
-                                },
-                            });
+                        if (round.bSwitch) {
+                            const temp = teamBPosFinal.right;
+                            teamBPosFinal.right = teamBPosFinal.left;
+                            teamBPosFinal.left = temp;
                         }
-                        if (hello % 2 === 1) {
-                            newSelectedServer = "a1";
-                            newPlayers = {
-                                ...newPlayers,
-                                a1: currentState.players.a1,
-                                a2: currentState.players.a2,
-                            };
-                            updatePlayers({
-                                variables: {
-                                    gameId,
-                                    players: {
-                                        A1: newPlayers.a1,
-                                        A2: newPlayers.a2,
-                                    },
-                                },
-                            });
-                        }
-                        newSelectedReceiver = newSelectedServer === "a1" ? "b1" : "b2";
+                    }
+
+                    if (actualScoringTeam === "teamA") {
+                        const serverSide = (newSelectedServer === teamAPosFinal.right) ? "right" : "left";
+                        newSelectedReceiver = serverSide === "right" ? teamBPosFinal.right : teamBPosFinal.left;
+                    } else {
+                        const serverSide = (newSelectedServer === teamBPosFinal.right) ? "right" : "left";
+                        newSelectedReceiver = serverSide === "right" ? teamAPosFinal.right : teamAPosFinal.left;
                     }
 
                     if (newSelectedServer && newSelectedReceiver) {
@@ -1322,6 +1321,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
 
                 const setResult = {
                     currentServer,
+                    currentReceiver: newSelectedReceiver?.toUpperCase() as "A1" | "A2" | "B1" | "B2" | null,
                     aScore: newAScore,
                     bScore: newBScore,
                     lastTeamScored: actualWinningTeam,
@@ -1329,10 +1329,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                     scoresheet: updatedSets[currentSetIndex].scoresheet,
                 };
 
-                updateGameSetResult(gameId, currentSetIndex + 1, {
-                    ...setResult,
-                    currentPlayingSet: currentState.currentSet,
-                });
+                if (!setShouldEnd) {
+                    updateGameSetResult(gameId, currentSetIndex + 1, {
+                        ...setResult,
+                        currentPlayingSet: currentState.currentSet,
+                    });
+                }
 
                 if (setShouldEnd) {
                     const actualWinningTeam = actualScoringTeam === "teamA" ? "A" : "B";
@@ -1412,7 +1414,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                     [gameId]: {
                         ...currentState,
                         serverPosition: newServerPosition,
-                        players: newPlayers,
                         playerRoles: newPlayerRoles,
                         selectedServer: newSelectedServer,
                         selectedReceiver: newSelectedReceiver,
@@ -1574,8 +1575,34 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
     };
 
     const setSelectedServer = (gameId: string, server: string | null) => {
-        updateState(gameId, {
-            selectedServer: server,
+        setGamesState((prev) => {
+            const currentState = prev[gameId];
+            if (!currentState) return prev;
+
+            const updatedSets = [...currentState.sets];
+            const currentSetIndex = currentState.currentSet - 1;
+            const currentSetData = updatedSets[currentSetIndex];
+
+            if (currentSetData && currentSetData.scoresheet && currentSetData.scoresheet.length === 1 && currentSetData.scoresheet[0].scorer === null) {
+                updatedSets[currentSetIndex] = {
+                    ...currentSetData,
+                    scoresheet: [{
+                        ...currentSetData.scoresheet[0],
+                        scorer: server?.toUpperCase() || null,
+                        nextServe: server?.toUpperCase() || null,
+                        toServe: server?.toUpperCase() || null,
+                    }],
+                };
+            }
+
+            return {
+                ...prev,
+                [gameId]: {
+                    ...currentState,
+                    selectedServer: server,
+                    sets: updatedSets,
+                },
+            };
         });
 
         // Update the server in the database using the existing mutation
@@ -1790,18 +1817,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                 };
             });
 
-            // Swap player positions (A1 ↔ A2)
-            const newPlayers = {
-                ...currentState.players,
-                a1: currentState.players.a2,
-                a2: currentState.players.a1,
-            };
 
             // Track the swap in set data
             const updatedSets = [...currentState.sets];
             const currentSetIndex = currentState.currentSet - 1;
             const currentSetData = updatedSets[currentSetIndex] || {
                 currentServer: null,
+                currentReceiver: null,
                 scoresheet: [],
             };
 
@@ -1825,25 +1847,49 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
             // Determine if we need to update the backend's currentServer
             let backendUpdateNeeded = false;
             let newCurrentServer = currentSetData.currentServer;
+            let newCurrentReceiver = currentSetData.currentReceiver;
 
-            // Case 1: Server was already selected (update backend)
             if (currentState.selectedServer) {
                 if (currentState.selectedServer === "a1") {
                     newCurrentServer = "A2";
+                    backendUpdateNeeded = true;
                 } else if (currentState.selectedServer === "a2") {
                     newCurrentServer = "A1";
+                    backendUpdateNeeded = true;
                 }
-                backendUpdateNeeded = true;
+            }
+
+            if (currentState.selectedReceiver) {
+                if (currentState.selectedReceiver === "a1") {
+                    newCurrentReceiver = "A2";
+                    backendUpdateNeeded = true;
+                } else if (currentState.selectedReceiver === "a2") {
+                    newCurrentReceiver = "A1";
+                    backendUpdateNeeded = true;
+                }
             }
 
             // Update backend if needed
-            if (backendUpdateNeeded && newCurrentServer) {
+            if (backendUpdateNeeded) {
                 updateSetResult({
                     variables: {
                         gameId,
                         setNumber: currentState.currentSet,
                         input: {
                             currentServer: newCurrentServer,
+                            currentReceiver: newCurrentReceiver,
+                            scoresheet: updatedSets[currentSetIndex].scoresheet,
+                        },
+                        currentPlayingSet: currentState.currentSet,
+                    },
+                });
+            } else {
+                // Even if we don't update currentServer, we should save the scoresheet swap
+                updateSetResult({
+                    variables: {
+                        gameId,
+                        setNumber: currentState.currentSet,
+                        input: {
                             scoresheet: updatedSets[currentSetIndex].scoresheet,
                         },
                         currentPlayingSet: currentState.currentSet,
@@ -1855,7 +1901,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                 ...prev,
                 [gameId]: {
                     ...currentState,
-                    players: newPlayers,
                     sets: updatedSets,
                     // Update selectedServer if it was set
                     selectedServer:
@@ -1864,6 +1909,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                             : currentState.selectedServer === "a2"
                                 ? "a1"
                                 : currentState.selectedServer,
+                    selectedReceiver:
+                        currentState.selectedReceiver === "a1"
+                            ? "a2"
+                            : currentState.selectedReceiver === "a2"
+                                ? "a1"
+                                : currentState.selectedReceiver,
                     // Swap player roles
                     playerRoles: {
                         ...currentState.playerRoles,
@@ -1895,18 +1946,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                 };
             });
 
-            // Swap player positions (B1 ↔ B2)
-            const newPlayers = {
-                ...currentState.players,
-                b1: currentState.players.b2,
-                b2: currentState.players.b1,
-            };
-
             // Track the swap in set data
             const updatedSets = [...currentState.sets];
             const currentSetIndex = currentState.currentSet - 1;
             const currentSetData = updatedSets[currentSetIndex] || {
                 currentServer: null,
+                currentReceiver: null,
                 scoresheet: [],
             };
 
@@ -1930,23 +1975,47 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
             // Determine if we need to update the backend's currentServer
             let backendUpdateNeeded = false;
             let newCurrentServer = currentSetData.currentServer;
+            let newCurrentReceiver = currentSetData.currentReceiver;
 
             if (currentState.selectedServer) {
                 if (currentState.selectedServer === "b1") {
                     newCurrentServer = "B2";
+                    backendUpdateNeeded = true;
                 } else if (currentState.selectedServer === "b2") {
                     newCurrentServer = "B1";
+                    backendUpdateNeeded = true;
                 }
-                backendUpdateNeeded = true;
             }
 
-            if (backendUpdateNeeded && newCurrentServer) {
+            if (currentState.selectedReceiver) {
+                if (currentState.selectedReceiver === "b1") {
+                    newCurrentReceiver = "B2";
+                    backendUpdateNeeded = true;
+                } else if (currentState.selectedReceiver === "b2") {
+                    newCurrentReceiver = "B1";
+                    backendUpdateNeeded = true;
+                }
+            }
+
+            if (backendUpdateNeeded) {
                 updateSetResult({
                     variables: {
                         gameId,
                         setNumber: currentState.currentSet,
                         input: {
                             currentServer: newCurrentServer,
+                            currentReceiver: newCurrentReceiver,
+                            scoresheet: updatedSets[currentSetIndex].scoresheet,
+                        },
+                        currentPlayingSet: currentState.currentSet,
+                    },
+                });
+            } else {
+                updateSetResult({
+                    variables: {
+                        gameId,
+                        setNumber: currentState.currentSet,
+                        input: {
                             scoresheet: updatedSets[currentSetIndex].scoresheet,
                         },
                         currentPlayingSet: currentState.currentSet,
@@ -1958,7 +2027,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                 ...prev,
                 [gameId]: {
                     ...currentState,
-                    players: newPlayers,
                     sets: updatedSets,
                     selectedServer:
                         currentState.selectedServer === "b1"
@@ -1966,6 +2034,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({
                             : currentState.selectedServer === "b2"
                                 ? "b1"
                                 : currentState.selectedServer,
+                    selectedReceiver:
+                        currentState.selectedReceiver === "b1"
+                            ? "b2"
+                            : currentState.selectedReceiver === "b2"
+                                ? "b1"
+                                : currentState.selectedReceiver,
                     playerRoles: {
                         ...currentState.playerRoles,
                         b1: currentState.playerRoles.b2,

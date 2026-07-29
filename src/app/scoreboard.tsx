@@ -55,6 +55,9 @@ const FETCH_GAME = gql`
         bScore
         currentRound
         currentServer
+        currentReceiver
+        firstServer
+        firstReceiver
         lastTeamScored
         switchSide
       }
@@ -1110,128 +1113,9 @@ export default function ScoreboardScreen() {
                         `Selected receiver: ${receiverKey.toUpperCase()} - ${receiverPlayer}`
                     );
 
-                    let updatedPlayers = {
-                        A1: players.a1,
-                        A2: players.a2,
-                        B1: players.b1,
-                        B2: players.b2,
-                    };
-
-                    if (isSingles) {
-                        updatedPlayers.A1 = serverKey.startsWith("a")
-                            ? serverPlayer
-                            : receiverPlayer;
-                        updatedPlayers.B1 = serverKey.startsWith("b")
-                            ? serverPlayer
-                            : receiverPlayer;
-                    } else {
-                        const newPositions = { ...updatedPlayers };
-
-                        // Handle Server
-                        if (serverKey.startsWith("a")) {
-                            // Team A server
-                            const originalA2 = players.a2;
-                            newPositions.A2 = serverPlayer;
-
-                            if (serverKey !== "a2") {
-                                newPositions[
-                                    serverKey.toUpperCase() as keyof typeof newPositions
-                                ] = originalA2;
-                            }
-                        } else if (serverKey.startsWith("b")) {
-                            // Team B server
-                            const originalB2 = players.b2;
-                            newPositions.B2 = serverPlayer;
-
-                            if (serverKey !== "b2") {
-                                newPositions[
-                                    serverKey.toUpperCase() as keyof typeof newPositions
-                                ] = originalB2;
-                            }
-                        }
-
-                        // Handle Receiver
-                        if (receiverKey.startsWith("a")) {
-                            // Team A receiver
-                            const originalA2 = newPositions.A2;
-                            newPositions.A2 = receiverPlayer;
-
-                            if (receiverKey !== "a2") {
-                                newPositions[
-                                    receiverKey.toUpperCase() as keyof typeof newPositions
-                                ] = originalA2;
-                            }
-                        } else if (receiverKey.startsWith("b")) {
-                            // Team B receiver
-                            const originalB2 = newPositions.B2;
-                            newPositions.B2 = receiverPlayer;
-
-                            if (receiverKey !== "b2") {
-                                newPositions[
-                                    receiverKey.toUpperCase() as keyof typeof newPositions
-                                ] = originalB2;
-                            }
-                        }
-
-                        // Check for duplicate players
-                        const playerSet = new Set([
-                            newPositions.A1,
-                            newPositions.A2,
-                            newPositions.B1,
-                            newPositions.B2,
-                        ]);
-
-                        if (playerSet.size < 4) {
-                            console.error(
-                                "Duplicate players detected after swaps:",
-                                newPositions
-                            );
-                            Alert.alert("Error", "Cannot have duplicate players on court");
-                            return;
-                        }
-
-                        updatedPlayers = newPositions;
-                    }
-
-                    // Update database
-                    await updatePlayerSwitch({
-                        variables: {
-                            gameId: gameIdString,
-                            players: updatedPlayers,
-                        },
-                    });
-
-                    // Update local state
-                    updateState(gameIdString, {
-                        players: {
-                            a1: updatedPlayers.A1,
-                            a2: updatedPlayers.A2,
-                            b1: updatedPlayers.B1,
-                            b2: updatedPlayers.B2,
-                        },
-                        originalPlayers: {
-                            a1: updatedPlayers.A1,
-                            a2: updatedPlayers.A2,
-                            b1: updatedPlayers.B1,
-                            b2: updatedPlayers.B2,
-                        },
-                    });
-
-                    // Final assignment
-                    const finalServer = isSingles
-                        ? serverKey.startsWith("a")
-                            ? "a1"
-                            : "b1"
-                        : serverKey.startsWith("a")
-                            ? "a2"
-                            : "b2";
-                    const finalReceiver = isSingles
-                        ? serverKey.startsWith("a")
-                            ? "b1"
-                            : "a1"
-                        : receiverKey.startsWith("a")
-                            ? "a2"
-                            : "b2";
+                    // Final assignment without shuffling players
+                    const finalServer = serverKey;
+                    const finalReceiver = receiverKey;
 
                     setSelectedServer(gameIdString, finalServer);
                     setSelectedReceiver(gameIdString, finalReceiver);
@@ -1246,13 +1130,16 @@ export default function ScoreboardScreen() {
                         b2: null,
                     };
 
-                    newRoles[finalServer] = "server";
-                    newRoles[finalReceiver] = "receiver";
+                    newRoles[finalServer as keyof typeof newRoles] = "server";
+                    newRoles[finalReceiver as keyof typeof newRoles] = "receiver";
 
                     setPlayerRoles(gameIdString, newRoles);
 
                     await updateGameSetResult(gameIdString, currentGameState.currentSet, {
                         currentServer: finalServer.toUpperCase() as "A1" | "A2" | "B1" | "B2",
+                        currentReceiver: finalReceiver.toUpperCase() as "A1" | "A2" | "B1" | "B2",
+                        firstServer: finalServer.toUpperCase() as "A1" | "A2" | "B1" | "B2",
+                        firstReceiver: finalReceiver.toUpperCase() as "A1" | "A2" | "B1" | "B2",
                         aScore: 0,
                         bScore: 0,
                         lastTeamScored: null,
@@ -1429,8 +1316,8 @@ export default function ScoreboardScreen() {
                                     ]}
                                 >
                                     {isSingles
-                                        ? "Selected player will be set as B1 (receiver)"
-                                        : "Selected player will be moved to B2 (receiver) position"}
+                                        ? "Selected player will be set as the receiver"
+                                        : "Selected player will be set as the receiver"}
                                 </Text>
 
                                 <View style={styles.selectionSection}>
@@ -1640,11 +1527,23 @@ export default function ScoreboardScreen() {
         const aScore = currentSetData.aScore || 0;
         const bScore = currentSetData.bScore || 0;
 
-        const setOver =
-            (aScore >= maxScore && aScore >= bScore + 2) ||
-            (bScore >= maxScore && bScore >= aScore + 2) ||
-            aScore >= maxScore + 1 || // For extended sets if plusTwo is enabled
-            bScore >= maxScore + 1; // For extended sets if plusTwo is enabled
+        const numSets = Number(currentGameState?.noOfSets) || 1;
+        const isOneSet = numSets === 1;
+        const plusTwoEnabled = isOneSet ? true : (currentGameState?.plusTwo || false);
+        const plusTwoNoLimitEnabled = isOneSet ? true : (currentGameState?.plusTwoNoLimit || false);
+        const plusTwoMaxLimit = isOneSet ? 9999 : (currentGameState?.plusTwoMax || 30);
+
+        const leadingScore = Math.max(aScore, bScore);
+        const scoreDiff = Math.abs(aScore - bScore);
+
+        let setOver = false;
+        if (plusTwoNoLimitEnabled) {
+            setOver = leadingScore >= maxScore && scoreDiff >= 2;
+        } else if (plusTwoEnabled) {
+            setOver = (leadingScore >= maxScore && scoreDiff >= 2) || leadingScore >= plusTwoMaxLimit;
+        } else {
+            setOver = leadingScore >= maxScore;
+        }
 
         // Only show trophy if set is over AND scores aren't 0-0
         const shouldShowTrophy = setOver && (aScore > 0 || bScore > 0);
@@ -2553,7 +2452,7 @@ export default function ScoreboardScreen() {
                 {/* Back button */}
                 <Link href="/(tabs)/(games)" asChild>
                     <TouchableOpacity style={styles.backButton}>
-                        <AntDesign name={"arrowleft" as any} size={24} color="white" />
+                        <AntDesign name="arrow-left" size={24} color="white" />
                     </TouchableOpacity>
                 </Link>
 
